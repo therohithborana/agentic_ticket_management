@@ -28,10 +28,26 @@ app.use(
   })
 );
 
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => {
+const connectDB = async () => {
+  try {
+    if (!process.env.MONGO_URI) {
+      throw new Error("MONGO_URI is not defined in environment variables");
+    }
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET is not defined in environment variables");
+    }
+    
+    await mongoose.connect(process.env.MONGO_URI);
     console.log("MongoDB connected ✅");
-    app.listen(PORT, () => console.log("🚀 Server at http://localhost:3000"));
-  })
-  .catch((err) => console.error("❌ MongoDB error: ", err));
+    
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running at http://localhost:${PORT}`);
+      console.log(`📝 API Documentation available at http://localhost:${PORT}/api`);
+    });
+  } catch (error) {
+    console.error("❌ MongoDB connection error:", error.message);
+    process.exit(1);
+  }
+};
+
+connectDB();

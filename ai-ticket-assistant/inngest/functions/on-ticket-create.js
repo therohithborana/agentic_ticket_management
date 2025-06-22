@@ -13,24 +13,24 @@ export const onTicketCreated = inngest.createFunction(
       const { ticketId } = event.data;
 
       //fetch ticket from DB
-      const ticket = await step.run("fetch-ticket", async () => {
-        const ticketObject = await Ticket.findById(ticketId);
-        if (!ticket) {
+      const ticketObject = await step.run("fetch-ticket", async () => {
+        const foundTicket = await Ticket.findById(ticketId);
+        if (!foundTicket) {
           throw new NonRetriableError("Ticket not found");
         }
-        return ticketObject;
+        return foundTicket;
       });
 
       await step.run("update-ticket-status", async () => {
-        await Ticket.findByIdAndUpdate(ticket._id, { status: "TODO" });
+        await Ticket.findByIdAndUpdate(ticketObject._id, { status: "TODO" });
       });
 
-      const aiResponse = await analyzeTicket(ticket);
+      const aiResponse = await analyzeTicket(ticketObject);
 
       const relatedskills = await step.run("ai-processing", async () => {
         let skills = [];
         if (aiResponse) {
-          await Ticket.findByIdAndUpdate(ticket._id, {
+          await Ticket.findByIdAndUpdate(ticketObject._id, {
             priority: !["low", "medium", "high"].includes(aiResponse.priority)
               ? "medium"
               : aiResponse.priority,
@@ -58,19 +58,43 @@ export const onTicketCreated = inngest.createFunction(
             role: "admin",
           });
         }
-        await Ticket.findByIdAndUpdate(ticket._id, {
+        await Ticket.findByIdAndUpdate(ticketObject._id, {
           assignedTo: user?._id || null,
         });
         return user;
       });
 
-      await setp.run("send-email-notification", async () => {
+      await step.run("send-email-notification", async () => {
         if (moderator) {
-          const finalTicket = await Ticket.findById(ticket._id);
+          const finalTicket = await Ticket.findById(ticketObject._id).populate('createdBy', 'email');
+          const emailContent = `
+New Ticket Assigned to You
+
+Ticket Details:
+---------------
+Title: ${finalTicket.title}
+Description: ${finalTicket.description}
+Priority: ${finalTicket.priority}
+Status: ${finalTicket.status}
+Created By: ${finalTicket.createdBy?.email || 'Unknown'}
+Created At: ${new Date(finalTicket.createdAt).toLocaleString()}
+
+AI Analysis:
+-----------
+Summary: ${aiResponse?.summary || 'Not available'}
+Required Skills: ${finalTicket.relatedSkills?.join(', ') || 'Not specified'}
+
+Helpful Notes for Resolution:
+---------------------------
+${finalTicket.helpfulNotes || 'No additional notes available'}
+
+You can view the full ticket details and respond at: ${process.env.APP_URL}/tickets/${finalTicket._id}
+`;
+
           await sendMail(
             moderator.email,
-            "Ticket Assigned",
-            `A new ticket is assigned to you ${finalTicket.title}`
+            `[${finalTicket.priority.toUpperCase()}] New Ticket Assigned: ${finalTicket.title}`,
+            emailContent
           );
         }
       });

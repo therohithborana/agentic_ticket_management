@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-function CheckAuth({ children, protectedRoute }) {
+function CheckAuth({ children, protected: isProtected }) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
 
-    if (protectedRoute) {
+    if (isProtected) {
       if (!token) {
         navigate("/login");
       } else {
@@ -21,7 +21,7 @@ function CheckAuth({ children, protectedRoute }) {
         setLoading(false);
       }
     }
-  }, [navigate, protectedRoute]);
+  }, [navigate, isProtected]);
 
   if (loading) {
     return <div>loading...</div>;
