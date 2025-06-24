@@ -1,5 +1,11 @@
 import mongoose from "mongoose";
 
+const commentSchema = new mongoose.Schema({
+  comment: String,
+  user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  createdAt: { type: Date, default: Date.now }
+});
+
 const ticketSchema = new mongoose.Schema({
   title: String,
   description: String,
@@ -14,6 +20,9 @@ const ticketSchema = new mongoose.Schema({
   deadline: Date,
   helpfulNotes: String,
   relatedSkills: [String],
+  comments: [commentSchema],
+  resolvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  resolvedAt: Date,
   createdAt: { type: Date, default: Date.now },
 });
 

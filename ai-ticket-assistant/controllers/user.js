@@ -67,11 +67,46 @@ export const logout = async (req, res) => {
   }
 };
 
+export const createUser = async (req, res) => {
+  const { email, password, role = "user", skills = [] } = req.body;
+  try {
+    if (req.user?.role !== "admin") {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ error: "User with this email already exists" });
+    }
+
+    const hashed = await bcrypt.hash(password, 10);
+    const user = await User.create({ 
+      email, 
+      password: hashed, 
+      role,
+      skills 
+    });
+
+    // Remove password from response
+    const userResponse = user.toObject();
+    delete userResponse.password;
+
+    return res.status(201).json({ 
+      message: "User created successfully",
+      user: userResponse
+    });
+  } catch (error) {
+    console.error("Create user error:", error);
+    res.status(500).json({ error: "User creation failed", details: error.message });
+  }
+};
+
 export const updateUser = async (req, res) => {
   const { skills = [], role, email } = req.body;
   try {
     if (req.user?.role !== "admin") {
-      return res.status(403).json({ eeor: "Forbidden" });
+      return res.status(403).json({ error: "Forbidden" });
     }
     const user = await User.findOne({ email });
     if (!user) return res.status(401).json({ error: "User not found" });
@@ -95,6 +130,35 @@ export const getUsers = async (req, res) => {
     const users = await User.find().select("-password");
     return res.json(users);
   } catch (error) {
-    res.status(500).json({ error: "Update failed", details: error.message });
+    res.status(500).json({ error: "Failed to fetch users", details: error.message });
+  }
+};
+
+export const deleteUser = async (req, res) => {
+  const { email } = req.body;
+  try {
+    if (req.user?.role !== "admin") {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const userToDelete = await User.findOne({ email });
+    if (!userToDelete) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Prevent admin from deleting themselves
+    if (userToDelete._id.toString() === req.user._id.toString()) {
+      return res.status(400).json({ error: "Cannot delete your own account" });
+    }
+
+    // Prevent admin from deleting other admins
+    if (userToDelete.role === "admin") {
+      return res.status(400).json({ error: "Cannot delete admin accounts" });
+    }
+
+    await User.deleteOne({ email });
+    return res.json({ message: "User deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: "Delete failed", details: error.message });
   }
 };

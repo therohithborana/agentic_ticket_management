@@ -68,7 +68,7 @@ export const getTicket = async (req, res) => {
       ticket = await Ticket.findOne({
         createdBy: user._id,
         _id: req.params.id,
-      }).select("title description status createdAt");
+      }).select("title description status createdAt helpfulNotes relatedSkills");
     }
 
     if (!ticket) {
@@ -77,6 +77,82 @@ export const getTicket = async (req, res) => {
     return res.status(200).json({ ticket });
   } catch (error) {
     console.error("Error fetching ticket", error.message);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const addComment = async (req, res) => {
+  try {
+    const { comment } = req.body;
+    if (!comment) {
+      return res.status(400).json({ message: "Comment is required" });
+    }
+
+    const ticket = await Ticket.findById(req.params.id);
+    if (!ticket) {
+      return res.status(404).json({ message: "Ticket not found" });
+    }
+
+    // Check if user has permission to comment
+    const user = req.user;
+    if (user.role === "user" && ticket.createdBy.toString() !== user._id.toString()) {
+      return res.status(403).json({ message: "Not authorized to comment on this ticket" });
+    }
+
+    const newComment = {
+      comment,
+      user: user._id,
+      createdAt: new Date()
+    };
+
+    ticket.comments = ticket.comments || [];
+    ticket.comments.push(newComment);
+    await ticket.save();
+
+    // Populate user info for the new comment
+    const populatedTicket = await Ticket.findById(req.params.id)
+      .populate("assignedTo", ["email", "_id"])
+      .populate("comments.user", ["email", "_id"]);
+
+    return res.status(200).json({ 
+      message: "Comment added successfully",
+      ticket: populatedTicket
+    });
+  } catch (error) {
+    console.error("Error adding comment", error.message);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const resolveTicket = async (req, res) => {
+  try {
+    const user = req.user;
+    
+    // Check if user has permission to resolve tickets
+    if (user.role !== "moderator" && user.role !== "admin") {
+      return res.status(403).json({ message: "Not authorized to resolve tickets" });
+    }
+
+    const ticket = await Ticket.findById(req.params.id);
+    if (!ticket) {
+      return res.status(404).json({ message: "Ticket not found" });
+    }
+
+    ticket.status = "resolved";
+    ticket.resolvedBy = user._id;
+    ticket.resolvedAt = new Date();
+    await ticket.save();
+
+    const populatedTicket = await Ticket.findById(req.params.id)
+      .populate("assignedTo", ["email", "_id"])
+      .populate("comments.user", ["email", "_id"]);
+
+    return res.status(200).json({ 
+      message: "Ticket marked as resolved",
+      ticket: populatedTicket
+    });
+  } catch (error) {
+    console.error("Error resolving ticket", error.message);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 };
