@@ -194,7 +194,7 @@ export default function Tickets() {
                   <Link
                     key={ticket._id}
                     className="block bg-gray-50 hover:bg-gray-100 rounded-lg p-6 transition-all duration-200 border border-gray-200 hover:border-blue-300 hover:shadow-md"
-                    to={`/tickets/${ticket._id}`}
+                    to={`/app/tickets/${ticket._id}`}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">

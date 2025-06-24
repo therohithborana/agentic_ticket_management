@@ -60,15 +60,16 @@ export const getTicket = async (req, res) => {
     let ticket;
 
     if (user.role !== "user") {
-      ticket = await Ticket.findById(req.params.id).populate("assignedTo", [
-        "email",
-        "_id",
-      ]);
+      ticket = await Ticket.findById(req.params.id)
+        .populate("assignedTo", ["email", "_id"])
+        .populate("comments.user", ["email", "_id"]);
     } else {
       ticket = await Ticket.findOne({
         createdBy: user._id,
         _id: req.params.id,
-      }).select("title description status createdAt helpfulNotes relatedSkills");
+      })
+        .select("title description status createdAt helpfulNotes relatedSkills comments")
+        .populate("comments.user", ["email", "_id"]);
     }
 
     if (!ticket) {

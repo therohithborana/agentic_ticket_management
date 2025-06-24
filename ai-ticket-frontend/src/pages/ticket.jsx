@@ -21,6 +21,9 @@ export default function TicketDetailsPage() {
   useEffect(() => {
     const fetchTicket = async () => {
       try {
+        console.log("Fetching ticket with ID:", id);
+        console.log("API URL:", `${import.meta.env.VITE_SERVER_URL}/api/tickets/${id}`);
+        
         const res = await fetch(
           `${import.meta.env.VITE_SERVER_URL}/api/tickets/${id}`,
           {
@@ -29,22 +32,32 @@ export default function TicketDetailsPage() {
             },
           }
         );
+        
+        console.log("Response status:", res.status);
         const data = await res.json();
+        console.log("Response data:", data);
+        
         if (res.ok) {
           setTicket(data.ticket);
         } else {
+          console.error("Failed to fetch ticket:", data);
           alert(data.message || "Failed to fetch ticket");
         }
       } catch (err) {
-        console.error(err);
+        console.error("Error fetching ticket:", err);
         alert("Something went wrong");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchTicket();
-  }, [id]);
+    if (id && token) {
+      fetchTicket();
+    } else {
+      console.log("Missing ID or token:", { id, hasToken: !!token });
+      setLoading(false);
+    }
+  }, [id, token]);
 
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
@@ -171,7 +184,7 @@ export default function TicketDetailsPage() {
           </svg>
           <h3 className="text-lg font-medium text-gray-900 mb-2">Ticket not found</h3>
           <p className="text-gray-600 mb-4">The ticket you're looking for doesn't exist or you don't have permission to view it.</p>
-          <Link to="/" className="btn btn-primary">
+          <Link to="/app" className="btn btn-primary">
             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
