@@ -3,7 +3,10 @@ import mongoose from "mongoose";
 const commentSchema = new mongoose.Schema({
   comment: String,
   user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
+  taggedUsers: [String], // Array of email addresses of tagged moderators/admins
+  targetRoles: [String], // Array of roles that can see this comment (e.g., ['moderator', 'admin'])
+  isPrivate: { type: Boolean, default: false } // If true, only targetRoles can see
 });
 
 const ticketSchema = new mongoose.Schema({

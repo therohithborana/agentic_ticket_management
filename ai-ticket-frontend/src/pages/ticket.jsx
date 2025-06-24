@@ -8,6 +8,12 @@ export default function TicketDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [comment, setComment] = useState("");
   const [user, setUser] = useState(null);
+  const [taggedUsers, setTaggedUsers] = useState([]);
+  const [availableUsers, setAvailableUsers] = useState([]);
+  const [showTagDropdown, setShowTagDropdown] = useState(false);
+  const [targetRoles, setTargetRoles] = useState([]);
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [showRoleDropdown, setShowRoleDropdown] = useState(false);
 
   const token = localStorage.getItem("token");
 
@@ -18,12 +24,37 @@ export default function TicketDetailsPage() {
     }
   }, []);
 
+  // Fetch moderators and admins for tagging
+  useEffect(() => {
+    const fetchModeratorsAndAdmins = async () => {
+      if (user && (user.role === 'moderator' || user.role === 'admin')) {
+        try {
+          console.log("Fetching moderators and admins...");
+          const res = await fetch(`${import.meta.env.VITE_SERVER_URL}/api/tickets/moderators-admins`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          console.log("Response status:", res.status);
+          const data = await res.json();
+          console.log("Moderators and admins data:", data);
+          if (res.ok) {
+            setAvailableUsers(data.users);
+          } else {
+            console.error("Failed to fetch moderators and admins:", data);
+          }
+        } catch (err) {
+          console.error("Error fetching moderators and admins:", err);
+        }
+      }
+    };
+
+    fetchModeratorsAndAdmins();
+  }, [user, token]);
+
   useEffect(() => {
     const fetchTicket = async () => {
       try {
-        console.log("Fetching ticket with ID:", id);
-        console.log("API URL:", `${import.meta.env.VITE_SERVER_URL}/api/tickets/${id}`);
-        
         const res = await fetch(
           `${import.meta.env.VITE_SERVER_URL}/api/tickets/${id}`,
           {
@@ -33,9 +64,7 @@ export default function TicketDetailsPage() {
           }
         );
         
-        console.log("Response status:", res.status);
         const data = await res.json();
-        console.log("Response data:", data);
         
         if (res.ok) {
           setTicket(data.ticket);
@@ -54,7 +83,6 @@ export default function TicketDetailsPage() {
     if (id && token) {
       fetchTicket();
     } else {
-      console.log("Missing ID or token:", { id, hasToken: !!token });
       setLoading(false);
     }
   }, [id, token]);
@@ -82,17 +110,33 @@ export default function TicketDetailsPage() {
     if (!comment.trim()) return;
     
     try {
+      console.log("Adding comment with tagged users:", taggedUsers);
+      console.log("Adding comment with target roles:", targetRoles);
+      console.log("Adding comment as private:", isPrivate);
+      
       const res = await fetch(`${import.meta.env.VITE_SERVER_URL}/api/tickets/${id}/comment`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ comment }),
+        body: JSON.stringify({ 
+          comment,
+          taggedUsers: taggedUsers,
+          targetRoles: targetRoles,
+          isPrivate: isPrivate
+        }),
       });
+
+      console.log("Comment response status:", res.status);
+      const responseData = await res.json();
+      console.log("Comment response data:", responseData);
 
       if (res.ok) {
         setComment("");
+        setTaggedUsers([]);
+        setTargetRoles([]);
+        setIsPrivate(false);
         // Refresh ticket data
         const ticketRes = await fetch(`${import.meta.env.VITE_SERVER_URL}/api/tickets/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -160,6 +204,45 @@ export default function TicketDetailsPage() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
+
+  const handleTagUser = (userEmail) => {
+    if (!taggedUsers.includes(userEmail)) {
+      setTaggedUsers([...taggedUsers, userEmail]);
+    }
+    setShowTagDropdown(false);
+  };
+
+  const removeTaggedUser = (userEmail) => {
+    setTaggedUsers(taggedUsers.filter(email => email !== userEmail));
+  };
+
+  const handleTargetRole = (role) => {
+    if (!targetRoles.includes(role)) {
+      setTargetRoles([...targetRoles, role]);
+    }
+    setShowRoleDropdown(false);
+  };
+
+  const removeTargetRole = (role) => {
+    setTargetRoles(targetRoles.filter(r => r !== role));
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showTagDropdown && !event.target.closest('.tag-dropdown-container')) {
+        setShowTagDropdown(false);
+      }
+      if (showRoleDropdown && !event.target.closest('.role-dropdown-container')) {
+        setShowRoleDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showTagDropdown, showRoleDropdown]);
 
   if (loading) {
     return (
@@ -294,7 +377,34 @@ export default function TicketDetailsPage() {
                           {new Date(comment.createdAt).toLocaleString()}
                         </span>
                       </div>
-                      <p className="text-gray-800">{comment.comment}</p>
+                      <p className="text-gray-800 mb-2">{comment.comment}</p>
+                      {comment.taggedUsers && comment.taggedUsers.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {comment.taggedUsers.map((taggedUser, tagIndex) => (
+                            <span key={tagIndex} className="badge badge-info badge-sm text-white">
+                              @{taggedUser}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {comment.targetRoles && comment.targetRoles.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          <span className="text-xs text-gray-500">Visible to:</span>
+                          {comment.targetRoles.map((role, roleIndex) => (
+                            <span key={roleIndex} className="badge badge-warning badge-sm text-white">
+                              {role}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {comment.isPrivate && (
+                        <div className="flex items-center gap-1 mt-2">
+                          <svg className="w-3 h-3 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                          </svg>
+                          <span className="text-xs text-red-600 font-medium">Private Message</span>
+                        </div>
+                      )}
                     </div>
                   ))
                 ) : (
@@ -302,26 +412,155 @@ export default function TicketDetailsPage() {
                 )}
               </div>
 
-              <div className="flex gap-2">
-                <input
-                  id="comment-input"
-                  type="text"
-                  placeholder="Add a comment..."
-                  className="input input-bordered flex-1 bg-white text-gray-900 placeholder-gray-500"
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleAddComment()}
-                />
-                <button 
-                  onClick={handleAddComment}
-                  className="btn btn-primary"
-                  disabled={!comment.trim()}
-                >
-                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                  </svg>
-                  Send
-                </button>
+              <div className="space-y-3">
+                {/* Tagged Users Display */}
+                {taggedUsers.length > 0 && (
+                  <div className="flex flex-wrap gap-2 p-2 bg-blue-50 rounded-lg border border-blue-200">
+                    <span className="text-sm text-gray-600">Tagged:</span>
+                    {taggedUsers.map((userEmail, index) => (
+                      <span key={index} className="badge badge-info badge-sm text-white flex items-center gap-1">
+                        @{userEmail}
+                        <button
+                          onClick={() => removeTaggedUser(userEmail)}
+                          className="ml-1 hover:text-red-200"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Target Roles Display */}
+                {targetRoles.length > 0 && (
+                  <div className="flex flex-wrap gap-2 p-2 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <span className="text-sm text-gray-600">Visible to:</span>
+                    {targetRoles.map((role, index) => (
+                      <span key={index} className="badge badge-warning badge-sm text-white flex items-center gap-1">
+                        {role}
+                        <button
+                          onClick={() => removeTargetRole(role)}
+                          className="ml-1 hover:text-red-200"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <div className="flex-1 relative tag-dropdown-container">
+                    <input
+                      id="comment-input"
+                      type="text"
+                      placeholder="Add a comment..."
+                      className="input input-bordered w-full bg-white text-gray-900 placeholder-gray-500"
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleAddComment()}
+                    />
+                    
+                    {/* Tag Button for Moderators/Admins */}
+                    {(user?.role === 'moderator' || user?.role === 'admin') && availableUsers.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowTagDropdown(!showTagDropdown)}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 btn btn-xs btn-outline"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                        </svg>
+                      </button>
+                    )}
+                    
+                    {/* Tag Dropdown */}
+                    {showTagDropdown && (user?.role === 'moderator' || user?.role === 'admin') && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto">
+                        {availableUsers.map((user) => (
+                          <button
+                            key={user._id}
+                            onClick={() => handleTagUser(user.email)}
+                            className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm text-gray-700 flex items-center gap-2"
+                          >
+                            <span className={`badge badge-xs ${user.role === 'admin' ? 'badge-error' : 'badge-warning'}`}>
+                              {user.role}
+                            </span>
+                            {user.email}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <button 
+                    onClick={handleAddComment}
+                    className="btn btn-primary"
+                    disabled={!comment.trim()}
+                  >
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                    Send
+                  </button>
+                </div>
+
+                {/* Role-Based Messaging Controls for Moderators/Admins */}
+                {(user?.role === 'moderator' || user?.role === 'admin') && (
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <span className="text-sm text-gray-600">Message options:</span>
+                    
+                    {/* Target Roles Dropdown */}
+                    <div className="relative role-dropdown-container">
+                      <button
+                        type="button"
+                        onClick={() => setShowRoleDropdown(!showRoleDropdown)}
+                        className="btn btn-xs btn-outline"
+                      >
+                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                        Target Roles
+                      </button>
+                      
+                      {showRoleDropdown && (
+                        <div className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-10">
+                          <button
+                            onClick={() => handleTargetRole('user')}
+                            className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm text-gray-700 flex items-center gap-2"
+                          >
+                            <span className="badge badge-xs badge-success">user</span>
+                            Users
+                          </button>
+                          <button
+                            onClick={() => handleTargetRole('moderator')}
+                            className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm text-gray-700 flex items-center gap-2"
+                          >
+                            <span className="badge badge-xs badge-warning">moderator</span>
+                            Moderators
+                          </button>
+                          <button
+                            onClick={() => handleTargetRole('admin')}
+                            className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm text-gray-700 flex items-center gap-2"
+                          >
+                            <span className="badge badge-xs badge-error">admin</span>
+                            Admins
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Private Message Toggle */}
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isPrivate}
+                        onChange={(e) => setIsPrivate(e.target.checked)}
+                        className="checkbox checkbox-xs"
+                      />
+                      <span className="text-sm text-gray-600">Private Message</span>
+                    </label>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -361,7 +600,7 @@ export default function TicketDetailsPage() {
                     <label className="block text-sm font-medium text-gray-600 mb-2">Related Skills</label>
                     <div className="flex flex-wrap gap-2">
                       {ticket.relatedSkills.map((skill, index) => (
-                        <span key={index} className="badge badge-outline badge-sm">
+                        <span key={index} className="badge badge-outline badge-sm text-black">
                           {skill}
                         </span>
                       ))}
@@ -388,7 +627,7 @@ export default function TicketDetailsPage() {
               <h3 className="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
               <div className="space-y-3">
                 <button 
-                  className="btn btn-outline btn-sm w-full"
+                  className="btn btn-outline btn-sm w-full text-black"
                   onClick={() => document.getElementById('comment-input')?.focus()}
                 >
                   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -399,7 +638,7 @@ export default function TicketDetailsPage() {
                 
                 {(user?.role === 'moderator' || user?.role === 'admin') && ticket.status !== 'resolved' && (
                   <button 
-                    className="btn btn-success btn-sm w-full"
+                    className="btn btn-success btn-sm w-full text-black"
                     onClick={handleMarkResolved}
                   >
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -410,7 +649,7 @@ export default function TicketDetailsPage() {
                 )}
                 
                 <button 
-                  className="btn btn-outline btn-sm w-full"
+                  className="btn btn-outline btn-sm w-full text-black"
                   onClick={handleDownloadDetails}
                 >
                   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
