@@ -29,7 +29,7 @@ export default function LoginPage() {
         localStorage.setItem("user", JSON.stringify(data.user));
         navigate("/app");
       } else {
-        alert(data.message || "Login failed");
+        alert(data.error || "Login failed");
       }
     } catch (err) {
       alert("Something went wrong");

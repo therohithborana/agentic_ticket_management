@@ -1,0 +1,11 @@
+{
+  "name": "ai-ticket-serverless",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "@inngest/agent-kit": "^0.8.0",
+    "bcrypt": "^6.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.15.1"
+  }
+} 
