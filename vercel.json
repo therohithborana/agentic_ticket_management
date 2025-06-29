@@ -1,0 +1,31 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/**/*.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "ai-ticket-frontend/dist"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/ai-ticket-frontend/$1"
+    }
+  ],
+  "env": {
+    "MONGO_URI": "@mongo-uri",
+    "JWT_SECRET": "@jwt-secret",
+    "GEMINI_API_KEY": "@gemini-api-key"
+  }
+} 
