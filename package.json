@@ -1,19 +1,19 @@
-// {
-//   "name": "ai-ticket-system-serverless",
-//   "version": "1.0.0",
-//   "description": "AI-powered ticket system with serverless backend",
-//   "scripts": {
-//     "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
-//     "dev:frontend": "cd ai-ticket-frontend && npm run dev",
-//     "dev:backend": "cd api && npm install && npx vercel dev",
-//     "build": "cd ai-ticket-frontend && npm run build",
-//     "deploy": "vercel --prod",
-//     "install:all": "npm install && cd ai-ticket-frontend && npm install && cd ../api && npm install"
-//   },
-//   "devDependencies": {
-//     "concurrently": "^8.2.2"
-//   },
-//   "engines": {
-//     "node": ">=18.0.0"
-//   }
-// } 
+{
+  "name": "ai-ticket-system-serverless",
+  "version": "1.0.0",
+  "description": "AI-powered ticket system with serverless backend",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev:frontend": "cd ai-ticket-frontend && npm run dev",
+    "dev:backend": "cd api && npm install && npx vercel dev",
+    "build": "cd ai-ticket-frontend && npm run build",
+    "deploy": "vercel --prod",
+    "install:all": "npm install && cd ai-ticket-frontend && npm install && cd ../api && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+} 
